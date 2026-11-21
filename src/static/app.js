@@ -2,7 +2,39 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitiesList = document.getElementById("activities-list");
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
+  const signupContainer = document.getElementById("signup-container");
   const messageDiv = document.getElementById("message");
+  const userMenuButton = document.getElementById("user-menu-button");
+  const loginModal = document.getElementById("login-modal");
+  const closeLoginButton = document.getElementById("close-login");
+  const loginForm = document.getElementById("login-form");
+  const loginMessage = document.getElementById("login-message");
+  let isAuthenticated = false;
+
+  function showLoginModal(show) {
+    loginModal.classList.toggle("hidden", !show);
+    userMenuButton.setAttribute("aria-expanded", String(show));
+    if (show) {
+      document.getElementById("username").focus();
+    }
+  }
+
+  async function refreshAuthStatus() {
+    try {
+      const response = await fetch("/auth/status");
+      const status = await response.json();
+      isAuthenticated = Boolean(status.authenticated);
+      signupContainer.classList.toggle("hidden", !isAuthenticated);
+      userMenuButton.textContent = isAuthenticated ? "Logout" : "User";
+      userMenuButton.setAttribute(
+        "aria-label",
+        isAuthenticated ? "Log out" : "Open teacher login"
+      );
+      fetchActivities();
+    } catch (error) {
+      console.error("Error checking authentication:", error);
+    }
+  }
 
   // Function to fetch activities from API
   async function fetchActivities() {
@@ -12,6 +44,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Clear loading message
       activitiesList.innerHTML = "";
+      activitySelect.innerHTML =
+        '<option value="">-- Select an activity --</option>';
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -30,7 +64,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${details.participants
                   .map(
                     (email) =>
-                      `<li><span class="participant-email">${email}</span><button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button></li>`
+                      `<li><span class="participant-email">${email}</span>${
+                        isAuthenticated
+                          ? `<button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button>`
+                          : ""
+                      }</li>`
                   )
                   .join("")}
               </ul>
@@ -155,6 +193,57 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    try {
+      const response = await fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const result = await response.json();
+
+      if (response.ok) {
+        loginForm.reset();
+        showLoginModal(false);
+        await refreshAuthStatus();
+      } else {
+        loginMessage.textContent = result.detail || "Login failed";
+        loginMessage.className = "message error";
+        loginMessage.classList.remove("hidden");
+      }
+    } catch (error) {
+      loginMessage.textContent = "Unable to contact the server";
+      loginMessage.className = "message error";
+      loginMessage.classList.remove("hidden");
+    }
+  });
+
+  userMenuButton.addEventListener("click", async () => {
+    if (isAuthenticated) {
+      await fetch("/logout", { method: "POST" });
+      await refreshAuthStatus();
+    } else {
+      loginMessage.classList.add("hidden");
+      showLoginModal(true);
+    }
+  });
+
+  closeLoginButton.addEventListener("click", () => showLoginModal(false));
+  loginModal.addEventListener("click", (event) => {
+    if (event.target === loginModal) {
+      showLoginModal(false);
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      showLoginModal(false);
+    }
+  });
+
   // Initialize app
-  fetchActivities();
+  refreshAuthStatus();
 });
