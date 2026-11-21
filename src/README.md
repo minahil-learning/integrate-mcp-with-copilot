@@ -6,6 +6,19 @@ A super simple FastAPI application that allows students to view and sign up for 
 
 - View all available extracurricular activities
 - Sign up for activities
+- Teacher-only registration and unregister controls
+- Teacher login using `teachers.json`
+
+## Teacher Login
+
+The default development account is stored in `src/teachers.json`:
+
+```text
+Username: admin
+Password: changeme
+```
+
+Change these credentials before deploying the application.
 
 ## Getting Started
 
